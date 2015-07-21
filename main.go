@@ -8,12 +8,22 @@ import (
 	"os"
 	"reflect"
 	"strings"
+
+	"github.com/daviddengcn/go-colortext"
 )
 
 func check(e error) {
 	if e != nil {
+		ct.ChangeColor(ct.Red, true, ct.None, false)
 		panic(e)
+		ct.ResetColor()
 	}
+}
+
+func say(msg string) {
+	ct.ChangeColor(ct.Green, true, ct.None, true)
+	log.Println(msg)
+	ct.ResetColor()
 }
 
 type command struct {
@@ -27,6 +37,7 @@ var (
 		{"create", "sets up new project"},
 		{"build", "builds the project"},
 		{"new", "add a new file"},
+		{"watch", "watch for changes in the current directory and build."},
 	}
 )
 
@@ -79,26 +90,31 @@ func (cli *Cli) CmdHelp(args ...string) error {
 }
 
 func (cli *Cli) CmdCreate(args ...string) error {
-	fmt.Printf("Create new project")
+	say("Create new project")
 	return nil
 }
 
 func (cli *Cli) CmdBuild(args ...string) error {
-	fmt.Printf("Building")
+	say("Building")
 	BuildAll()
 	return nil
 }
 
 func (cli *Cli) CmdRun(args ...string) error {
+	say("Listening...")
 	http.Handle("/", http.FileServer(http.Dir("public")))
-
-	log.Println("Listening...")
 	http.ListenAndServe(":3000", nil)
 	return nil
 }
 
 func (cli *Cli) CmdNew(args ...string) error {
-	fmt.Printf("New thingy")
+	say("New thingy")
+	return nil
+}
+
+func (cli *Cli) CmdWatch(args ...string) error {
+	say("Watching current directory")
+	Watch()
 	return nil
 }
 

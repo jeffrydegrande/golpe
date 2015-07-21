@@ -8,7 +8,6 @@ import (
 )
 
 func BuildAll() error {
-	fmt.Printf("Building\n")
 	layouts, err := filepath.Glob("./*.tmpl")
 	check(err)
 
