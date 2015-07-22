@@ -33,6 +33,13 @@ func Watch() error {
 
 	err = watcher.Add(".")
 	check(err)
+
+	err = watcher.Add("javascripts")
+	check(err)
+
+	err = watcher.Add("javascripts/components")
+	check(err)
+
 	<-done
 
 	return nil
