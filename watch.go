@@ -7,7 +7,7 @@ import (
 	"github.com/go-fsnotify/fsnotify"
 )
 
-func Watch() error {
+func watch() error {
 	watcher, err := fsnotify.NewWatcher()
 	check(err)
 	defer watcher.Close()
@@ -24,7 +24,7 @@ func Watch() error {
 
 				var m = fmt.Sprintf("Changed detected in %s, rebuilding\n", event.Name)
 				say(m)
-				BuildAll()
+				buildAll()
 			case err := <-watcher.Errors:
 				log.Println("error:", err)
 			}
