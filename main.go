@@ -41,14 +41,14 @@ var (
 	}
 )
 
-type cli struct {
+type Cli struct {
 }
 
-func newCli() *cli {
-	return &cli{}
+func NewCli() *Cli {
+	return &Cli{}
 }
 
-func (cli *cli) getMethod(args ...string) (func(...string) error, bool) {
+func (cli *Cli) getMethod(args ...string) (func(...string) error, bool) {
 	camelArgs := make([]string, len(args))
 	for i, s := range args {
 		if len(s) == 0 {
@@ -67,7 +67,7 @@ func (cli *cli) getMethod(args ...string) (func(...string) error, bool) {
 	return method.Interface().(func(...string) error), true
 }
 
-func (cli *cli) cmd(args ...string) error {
+func (cli *Cli) Cmd(args ...string) error {
 	if len(args) > 1 {
 		method, exists := cli.getMethod(args[:2]...)
 		if exists {
@@ -81,40 +81,40 @@ func (cli *cli) cmd(args ...string) error {
 		}
 		return method(args[1:]...)
 	}
-	return cli.cmdHelp()
+	return cli.CmdHelp()
 }
 
-func (cli *cli) cmdHelp(args ...string) error {
+func (cli *Cli) CmdHelp(args ...string) error {
 	flag.Usage()
 	return nil
 }
 
-func (cli *cli) cmdCreate(args ...string) error {
+func (cli *Cli) CmdCreate(args ...string) error {
 	say("Create new project")
 	return nil
 }
 
-func (cli *cli) cmdBuild(args ...string) error {
+func (cli *Cli) CmdBuild(args ...string) error {
 	say("Building")
-	buildAll()
+	BuildAll()
 	return nil
 }
 
-func (cli *cli) cmdRun(args ...string) error {
+func (cli *Cli) CmdRun(args ...string) error {
 	say("Listening...")
 	http.Handle("/", http.FileServer(http.Dir("public")))
 	http.ListenAndServe(":3000", nil)
 	return nil
 }
 
-func (cli *cli) cmdNew(args ...string) error {
+func (cli *Cli) CmdNew(args ...string) error {
 	say("New thingy")
 	return nil
 }
 
-func (cli *cli) cmdWatch(args ...string) error {
+func (cli *Cli) CmdWatch(args ...string) error {
 	say("Watching current directory")
-	watch()
+	Watch()
 	return nil
 }
 
@@ -137,6 +137,6 @@ func init() {
 
 func main() {
 	flag.Parse()
-	cli := newCli()
-	cli.cmd(flag.Args()...)
+	cli := NewCli()
+	cli.Cmd(flag.Args()...)
 }

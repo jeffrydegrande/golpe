@@ -85,7 +85,7 @@ func createDirectories() {
 	check(err)
 }
 
-func buildAll() error {
+func BuildAll() error {
 	start := time.Now()
 	createDirectories()
 
@@ -97,6 +97,10 @@ func buildAll() error {
 
 	htmlFiles, err := filepath.Glob("./*.html")
 	check(err)
+
+	if len(htmlFiles) == 0 {
+		return nil
+	}
 
 	for _, html := range htmlFiles {
 		var files []string
