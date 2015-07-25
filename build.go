@@ -48,17 +48,12 @@ func buildJavascripts() string {
 	return b.String()
 }
 
-func buildOneFile(path string, stylesheets string, javascripts string, files ...string) error {
+func buildOneFile(path string, funcMap template.FuncMap, files ...string) error {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	check(err)
 	defer f.Close()
 
 	fmt.Printf("Created file %s\n", path)
-	funcMap := template.FuncMap{
-		"javascripts": func() string { return javascripts },
-		"stylesheets": func() string { return stylesheets },
-	}
-
 	t := template.Must(template.New("").Funcs(funcMap).ParseFiles(files...))
 	err = t.ExecuteTemplate(f, "main", nil)
 	check(err)
@@ -89,17 +84,18 @@ func BuildAll() error {
 	start := time.Now()
 	createDirectories()
 
-	var javascripts = buildJavascripts()
-	var stylesheets = buildStylesheets()
-
 	layouts, err := filepath.Glob("./*.tmpl")
 	check(err)
 
 	htmlFiles, err := filepath.Glob("./*.html")
 	check(err)
 
-	if len(htmlFiles) == 0 {
-		return nil
+	var javascripts = buildJavascripts()
+	var stylesheets = buildStylesheets()
+
+	funcMap := template.FuncMap{
+		"javascripts": func() string { return javascripts },
+		"stylesheets": func() string { return stylesheets },
 	}
 
 	for _, html := range htmlFiles {
@@ -107,7 +103,7 @@ func BuildAll() error {
 		files = append(files, html)
 		files = append(files, layouts...)
 
-		buildOneFile(filepath.Join("public", html), stylesheets, javascripts, files...)
+		buildOneFile(filepath.Join("public", html), funcMap, files...)
 	}
 
 	delta := time.Now().Sub(start)
