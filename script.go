@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io/ioutil"
@@ -9,9 +8,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 )
+
+type graph map[string][]string
+type inDegree map[string]int
 
 func runJsxCompiler() {
 	jsx, err := filepath.Glob("jsx/*.js")
@@ -33,65 +34,114 @@ func runJsxCompiler() {
 			os.Exit(1)
 		}
 
-		path := filepath.Join("public/js/components", filepath.Base(js))
+		path := filepath.Join("javascripts/", "component_"+filepath.Base(js))
 		ioutil.WriteFile(path, []byte(stdout.String()), 0660)
 	}
 }
 
-// readLines reads a whole file into memory
-// and returns a slice of its lines.
-func readLines(path string) ([]string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
+// General purpose topological sort, not specific to the application of
+// library dependencies.  Also adapted from Wikipedia pseudo code.
+func topSortDFS(g graph) (order, cyclic []string) {
+	L := make([]string, len(g))
+	i := len(L)
+	temp := map[string]bool{}
+	perm := map[string]bool{}
+	var cycleFound bool
+	var cycleStart string
+	var visit func(string)
+	visit = func(n string) {
+		switch {
+		case temp[n]:
+			cycleFound = true
+			cycleStart = n
+			return
+		case perm[n]:
+			return
+		}
+		temp[n] = true
+		for _, m := range g[n] {
+			visit(m)
+			if cycleFound {
+				if cycleStart > "" {
+					cyclic = append(cyclic, n)
+					if n == cycleStart {
+						cycleStart = ""
+					}
+				}
+				return
+			}
+		}
+		delete(temp, n)
+		perm[n] = true
+		i--
+		L[i] = n
 	}
-	defer file.Close()
-
-	var lines []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
+	for n := range g {
+		if perm[n] {
+			continue
+		}
+		visit(n)
+		if cycleFound {
+			return nil, cyclic
+		}
 	}
-	return lines, scanner.Err()
+	return L, nil
 }
 
-type sortedMap struct {
-	m map[string]int
-	s []string
-}
-
-func (sm *sortedMap) Len() int {
-	return len(sm.m)
-}
-
-func (sm *sortedMap) Less(i, j int) bool {
-	return sm.m[sm.s[i]] > sm.m[sm.s[j]]
-}
-
-func (sm *sortedMap) Swap(i, j int) {
-	sm.s[i], sm.s[j] = sm.s[j], sm.s[i]
-}
-
-func sortedKeys(m map[string]int) []string {
-	sm := new(sortedMap)
-	sm.m = m
-	sm.s = make([]string, len(m))
-	i := 0
-	for key, _ := range m {
-		sm.s[i] = key
-		i++
+// General purpose topological sort, not specific to the application of
+// library dependencies.  Adapted from Wikipedia pseudo code, one main
+// difference here is that this function does not consume the input graph.
+// WP refers to incoming edges, but does not really need them fully represented.
+// A count of incoming edges, or the in-degree of each node is enough.  Also,
+// WP stops at cycle detection and doesn't output information about the cycle.
+// A little extra code at the end of this function recovers the cyclic nodes.
+func topSortKahn(g graph, in inDegree) (order, cyclic []string) {
+	var L, S []string
+	// rem for "remaining edges," this function makes a local copy of the
+	// in-degrees and consumes that instead of consuming an input.
+	rem := inDegree{}
+	for n, d := range in {
+		if d == 0 {
+			// accumulate "set of all nodes with no incoming edges"
+			S = append(S, n)
+		} else {
+			// initialize rem from in-degree
+			rem[n] = d
+		}
 	}
-	sort.Sort(sm)
-	return sm.s
-}
-
-func CopyFile(src string, dst string) {
-	// Read all content of src to data
-	data, err := ioutil.ReadFile(src)
-	check(err)
-	// Write data to dst
-	err = ioutil.WriteFile(dst, []byte(data), 0644)
-	check(err)
+	for len(S) > 0 {
+		last := len(S) - 1 // "remove a node n from S"
+		n := S[last]
+		S = S[:last]
+		L = append(L, n) // "add n to tail of L"
+		for _, m := range g[n] {
+			// WP pseudo code reads "for each node m..." but it means for each
+			// node m *remaining in the graph.*  We consume rem rather than
+			// the graph, so "remaining in the graph" for us means rem[m] > 0.
+			if rem[m] > 0 {
+				rem[m]--         // "remove edge from the graph"
+				if rem[m] == 0 { // if "m has no other incoming edges"
+					S = append(S, m) // "insert m into S"
+				}
+			}
+		}
+	}
+	// "If graph has edges," for us means a value in rem is > 0.
+	for c, in := range rem {
+		if in > 0 {
+			// recover cyclic nodes
+			for _, nb := range g[c] {
+				if rem[nb] > 0 {
+					cyclic = append(cyclic, c)
+					break
+				}
+			}
+		}
+	}
+	if len(cyclic) > 0 {
+		return nil, cyclic
+	}
+	return L, nil
 }
 
 func buildJavascripts() string {
@@ -101,19 +151,22 @@ func buildJavascripts() string {
 	javascripts, err := filepath.Glob("javascripts/*.js")
 	check(err)
 
-	// javascriptsComponents, err := filepath.Glob("javascripts/components/*.js")
-	// check(err)
+	javascriptsDeps, err := filepath.Glob("javascripts/**/*.js")
+	check(err)
 
-	// javascripts = append(javascripts, javascriptsComponents...)
+	javascripts = append(javascripts, javascriptsDeps...)
 
-	var m map[string]int
-	m = make(map[string]int)
+	fmt.Println("javascripts", javascripts)
+
+	g := graph{}
+	in := inDegree{}
 
 	// now we have to weight javascripts, by pulling out their dependencies
 	re := regexp.MustCompile("//= require (.*)")
 	for _, js := range javascripts {
-		// current file has default priority
-		m[filepath.Base(js)] = 1
+
+		jsFile := filepath.Base(js)
+		g[jsFile] = g[jsFile]
 
 		lines, err := readLines(js)
 		check(err)
@@ -123,26 +176,28 @@ func buildJavascripts() string {
 				continue
 			}
 
-			jsFile := res[1]
+			jsDep := filepath.Base(res[1])
 
-			if !strings.HasSuffix(jsFile, ".js") {
-				jsFile = jsFile + ".js"
+			if !strings.HasSuffix(jsDep, ".js") {
+				jsDep = jsDep + ".js"
 			}
 
-			_, err := os.Stat(filepath.Join("javascripts", jsFile))
-			check(err)
+			// _, err := os.Stat(filepath.Join("javascripts", jsDep))
+			// check(err)
 
-			prio := 0
-			switch filepath.Dir(jsFile) {
-			case "components":
-				prio = 100
-				break
-			case "vendor":
-				prio = 1000
-				break
+			in[jsDep] = in[jsDep]
+			successors := g[jsDep]
+			for i := 0; ; i++ {
+				if i == len(successors) {
+					g[jsDep] = append(successors, jsFile)
+					fmt.Println("Bumping ", jsFile)
+					in[jsFile]++
+					break
+				}
+				if jsDep == successors[i] {
+					break
+				}
 			}
-
-			m[jsFile] += prio
 		}
 	}
 
@@ -152,13 +207,19 @@ func buildJavascripts() string {
 	err = os.MkdirAll("public/js/vendor", 0770)
 	check(err)
 
-	keys := sortedKeys(m)
+	fmt.Printf("%q\n", g)
+
+	order, cyclic := topSortKahn(g, in)
+	if cyclic != nil {
+		fmt.Println("Cyclic:", cyclic)
+	}
+	fmt.Println("Order: ", order)
+
 	var b bytes.Buffer
-	for _, js := range keys {
+	for _, js := range order {
 		fmt.Printf("%s\n", js)
 
-		CopyFile(filepath.Join("javascripts", js), filepath.Join("public/js/", js))
-
+		// CopyFile(filepath.Join("javascripts", js), filepath.Join("public/js/", js))
 		b.Write([]byte(fmt.Sprintf("<script src=\"js/%s\"></script>\n", js)))
 	}
 
