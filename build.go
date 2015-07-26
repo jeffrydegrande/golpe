@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"text/template"
-	"time"
 )
 
 func buildStylesheets() string {
@@ -81,7 +80,6 @@ func createDirectories() {
 }
 
 func BuildAll() error {
-	start := time.Now()
 	createDirectories()
 
 	layouts, err := filepath.Glob("./*.tmpl")
@@ -106,8 +104,5 @@ func BuildAll() error {
 		buildOneFile(filepath.Join("public", html), funcMap, files...)
 	}
 
-	delta := time.Now().Sub(start)
-
-	fmt.Printf("Took %0.3fs\n", delta.Seconds())
 	return nil
 }

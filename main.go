@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/daviddengcn/go-colortext"
 )
@@ -138,5 +139,10 @@ func init() {
 func main() {
 	flag.Parse()
 	cli := NewCli()
+
+	start := time.Now()
 	cli.Cmd(flag.Args()...)
+	delta := time.Now().Sub(start)
+	fmt.Printf("Took %0.3fs\n", delta.Seconds())
+
 }
