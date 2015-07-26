@@ -35,18 +35,6 @@ func buildStylesheets() string {
 	return b.String()
 }
 
-func buildJavascripts() string {
-	javascripts, err := filepath.Glob("**/*.js")
-	check(err)
-
-	var b bytes.Buffer
-	for _, js := range javascripts {
-		b.Write([]byte(fmt.Sprintf("<script src=\"%s\"></script>\n", js)))
-	}
-
-	return b.String()
-}
-
 func buildOneFile(path string, funcMap template.FuncMap, files ...string) error {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	check(err)

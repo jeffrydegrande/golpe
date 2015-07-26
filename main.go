@@ -101,6 +101,12 @@ func (cli *Cli) CmdBuild(args ...string) error {
 	return nil
 }
 
+func (cli *Cli) CmdScript(args ...string) error {
+	result := buildJavascripts()
+	fmt.Printf("%s", result)
+	return nil
+}
+
 func (cli *Cli) CmdRun(args ...string) error {
 	say("Listening...")
 	http.Handle("/", http.FileServer(http.Dir("public")))
