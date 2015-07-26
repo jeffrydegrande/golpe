@@ -45,8 +45,8 @@ func Watch() error {
 	err = watcher.Add("javascripts")
 	check(err)
 
-	err = watcher.Add("javascripts/components")
-	check(err)
+	// err = watcher.Add("javascripts/components")
+	// check(err)
 
 	err = watcher.Add("stylesheets")
 	check(err)
