@@ -185,9 +185,6 @@ func buildJavascripts() string {
 				jsDep = jsDep + ".js"
 			}
 
-			// _, err := os.Stat(filepath.Join("javascripts", jsDep))
-			// check(err)
-
 			in[jsDep] = in[jsDep]
 			successors := g[jsDep]
 			for i := 0; ; i++ {
