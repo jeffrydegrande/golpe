@@ -156,7 +156,8 @@ func buildJavascripts() string {
 
 	javascripts = append(javascripts, javascriptsDeps...)
 
-	fmt.Println("javascripts", javascripts)
+	var fullPaths map[string]string
+	fullPaths = make(map[string]string)
 
 	g := graph{}
 	in := inDegree{}
@@ -166,6 +167,8 @@ func buildJavascripts() string {
 	for _, js := range javascripts {
 
 		jsFile := filepath.Base(js)
+
+		fullPaths[jsFile] = js
 		g[jsFile] = g[jsFile]
 
 		lines, err := readLines(js)
@@ -201,25 +204,15 @@ func buildJavascripts() string {
 		}
 	}
 
-	err = os.MkdirAll("public/js/components", 0770)
-	check(err)
-
-	err = os.MkdirAll("public/js/vendor", 0770)
-	check(err)
-
-	fmt.Printf("%q\n", g)
-
 	order, cyclic := topSortKahn(g, in)
 	if cyclic != nil {
-		fmt.Println("Cyclic:", cyclic)
+		fmt.Println("Cyclic javascript dependencies:", cyclic)
+		panic("can not continue")
 	}
-	fmt.Println("Order: ", order)
 
 	var b bytes.Buffer
 	for _, js := range order {
-		fmt.Printf("%s\n", js)
-
-		// CopyFile(filepath.Join("javascripts", js), filepath.Join("public/js/", js))
+		CopyFile(fullPaths[js], filepath.Join("public/js", js))
 		b.Write([]byte(fmt.Sprintf("<script src=\"js/%s\"></script>\n", js)))
 	}
 
