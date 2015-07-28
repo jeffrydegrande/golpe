@@ -70,12 +70,6 @@ func createDirectories() {
 func BuildAll() error {
 	createDirectories()
 
-	layouts, err := filepath.Glob("./*.tmpl")
-	check(err)
-
-	htmlFiles, err := filepath.Glob("./*.html")
-	check(err)
-
 	var javascripts = buildJavascripts()
 	var stylesheets = buildStylesheets()
 
@@ -83,6 +77,12 @@ func BuildAll() error {
 		"javascripts": func() string { return javascripts },
 		"stylesheets": func() string { return stylesheets },
 	}
+
+	layouts, err := filepath.Glob("./*.tmpl")
+	check(err)
+
+	htmlFiles, err := filepath.Glob("./*.html")
+	check(err)
 
 	for _, html := range htmlFiles {
 		var files []string
