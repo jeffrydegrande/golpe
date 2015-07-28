@@ -15,14 +15,27 @@ type graph map[string][]string
 type inDegree map[string]int
 
 func runJsxCompiler() {
+	cmd := exec.Command("jsx", "jsx", "javascripts/components")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+
+	if err != nil {
+		panic(stderr.String())
+	}
+}
+
+func runJsxCompilerPerFile() {
 	jsx, err := filepath.Glob("jsx/*.js")
 	check(err)
 
-	os.MkdirAll("public/js/components", 0770)
-
+	// compiles all jsx files individualy with jsx and prefixes them with component_
 	for _, js := range jsx {
 		fmt.Printf("Compiling %s\n", js)
-		cmd := exec.Command("jsx", js)
+		cmd := exec.Command("jsx", "jsx", "javascripts/components")
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
 		cmd.Stdout = &stdout
@@ -37,55 +50,6 @@ func runJsxCompiler() {
 		path := filepath.Join("javascripts/", "component_"+filepath.Base(js))
 		ioutil.WriteFile(path, []byte(stdout.String()), 0660)
 	}
-}
-
-// General purpose topological sort, not specific to the application of
-// library dependencies.  Also adapted from Wikipedia pseudo code.
-func topSortDFS(g graph) (order, cyclic []string) {
-	L := make([]string, len(g))
-	i := len(L)
-	temp := map[string]bool{}
-	perm := map[string]bool{}
-	var cycleFound bool
-	var cycleStart string
-	var visit func(string)
-	visit = func(n string) {
-		switch {
-		case temp[n]:
-			cycleFound = true
-			cycleStart = n
-			return
-		case perm[n]:
-			return
-		}
-		temp[n] = true
-		for _, m := range g[n] {
-			visit(m)
-			if cycleFound {
-				if cycleStart > "" {
-					cyclic = append(cyclic, n)
-					if n == cycleStart {
-						cycleStart = ""
-					}
-				}
-				return
-			}
-		}
-		delete(temp, n)
-		perm[n] = true
-		i--
-		L[i] = n
-	}
-	for n := range g {
-		if perm[n] {
-			continue
-		}
-		visit(n)
-		if cycleFound {
-			return nil, cyclic
-		}
-	}
-	return L, nil
 }
 
 // General purpose topological sort, not specific to the application of
@@ -145,8 +109,6 @@ func topSortKahn(g graph, in inDegree) (order, cyclic []string) {
 }
 
 func buildJavascripts() string {
-	// this will give us compiled jsx
-	runJsxCompiler()
 
 	javascripts, err := filepath.Glob("javascripts/*.js")
 	check(err)
@@ -190,7 +152,6 @@ func buildJavascripts() string {
 			for i := 0; ; i++ {
 				if i == len(successors) {
 					g[jsDep] = append(successors, jsFile)
-					fmt.Println("Bumping ", jsFile)
 					in[jsFile]++
 					break
 				}
@@ -209,7 +170,10 @@ func buildJavascripts() string {
 
 	var b bytes.Buffer
 	for _, js := range order {
-		CopyFile(fullPaths[js], filepath.Join("public/js", js))
+
+		newPath := filepath.Join("public/js/", js)
+		CopyFile(fullPaths[js], newPath)
+		fmt.Println(newPath, "created")
 		b.Write([]byte(fmt.Sprintf("<script src=\"js/%s\"></script>\n", js)))
 	}
 

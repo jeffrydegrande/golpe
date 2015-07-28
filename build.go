@@ -26,8 +26,12 @@ func buildStylesheets() string {
 
 		var path = fmt.Sprintf("%s.css", base[:len(base)-5])
 
-		err = ioutil.WriteFile(filepath.Join("public/css", path), []byte(output), 0644)
+		var newPath = filepath.Join("public/css", path)
+
+		err = ioutil.WriteFile(newPath, []byte(output), 0644)
 		check(err)
+
+		fmt.Println(newPath, "created")
 
 		b.Write([]byte(fmt.Sprintf("<link rel=\"stylesheet\" href=\"css/%s\" />\n", path)))
 	}
@@ -40,7 +44,7 @@ func buildOneFile(path string, funcMap template.FuncMap, files ...string) error 
 	check(err)
 	defer f.Close()
 
-	fmt.Printf("Created file %s\n", path)
+	fmt.Println(path, "created")
 	t := template.Must(template.New("").Funcs(funcMap).ParseFiles(files...))
 	err = t.ExecuteTemplate(f, "main", nil)
 	check(err)
@@ -50,33 +54,36 @@ func buildOneFile(path string, funcMap template.FuncMap, files ...string) error 
 
 func createDirectories() {
 
-	fmt.Printf("Clearing public directory\n")
-	err := os.RemoveAll("./public")
+	/*
+		err := os.MkdirAll("./public", 0770)
+		check(err)
+	*/
+	err := os.MkdirAll("./public/css", 0770)
 	check(err)
 
-	fmt.Printf("Creating public directory\n")
-	err = os.MkdirAll("./public", 0770)
-	check(err)
-
-	fmt.Printf("Creating stylesheet directory\n")
-	err = os.MkdirAll("./public/css", 0770)
-	check(err)
-
-	fmt.Printf("Creating javascript directory\n")
 	err = os.MkdirAll("./public/js", 0770)
 	check(err)
 }
 
 func BuildAll() error {
+	say("Creating directories")
 	createDirectories()
 
+	say("Compiling jsx")
+	runJsxCompiler()
+
+	say("Compile javascripts")
 	var javascripts = buildJavascripts()
+
+	say("Compiling stylesheets")
 	var stylesheets = buildStylesheets()
 
 	funcMap := template.FuncMap{
 		"javascripts": func() string { return javascripts },
 		"stylesheets": func() string { return stylesheets },
 	}
+
+	say("Compiling templates")
 
 	layouts, err := filepath.Glob("./*.tmpl")
 	check(err)

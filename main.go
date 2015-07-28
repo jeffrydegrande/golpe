@@ -96,7 +96,7 @@ func (cli *Cli) CmdCreate(args ...string) error {
 }
 
 func (cli *Cli) CmdBuild(args ...string) error {
-	say("Building")
+	say("Starting build")
 	BuildAll()
 	return nil
 }
