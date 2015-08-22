@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"text/template"
 )
@@ -54,14 +55,22 @@ func buildOneFile(path string, funcMap template.FuncMap, files ...string) error 
 
 func createDirectories() {
 
-	/*
-		err := os.MkdirAll("./public", 0770)
-		check(err)
-	*/
 	err := os.MkdirAll("./public/css", 0770)
 	check(err)
 
 	err = os.MkdirAll("./public/js", 0770)
+	check(err)
+}
+
+func copyImages() {
+	cmd := exec.Command("cp", "-r", "images/", "public/images")
+	err := cmd.Run()
+	check(err)
+}
+
+func copyFonts() {
+	cmd := exec.Command("cp", "-r", "fonts/", "public/fonts")
+	err := cmd.Run()
 	check(err)
 }
 
@@ -77,6 +86,12 @@ func BuildAll() error {
 
 	say("Compiling stylesheets")
 	var stylesheets = buildStylesheets()
+
+	say("Copying images")
+	copyImages()
+
+	say("Coping fonts")
+	copyFonts()
 
 	funcMap := template.FuncMap{
 		"javascripts": func() string { return javascripts },
