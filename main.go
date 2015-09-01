@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/daviddengcn/go-colortext"
+	"github.com/gorilla/handlers"
 )
 
 func check(e error) {
@@ -38,7 +39,7 @@ var (
 		{"create", "sets up new project"},
 		{"build", "builds the project"},
 		{"new", "add a new file"},
-		{"watch", "watch for changes in the current directory and build."},
+		{"api", "generate APIs"},
 	}
 )
 
@@ -50,29 +51,37 @@ func NewCli() *Cli {
 }
 
 func (cli *Cli) getMethod(args ...string) (func(...string) error, bool) {
-	camelArgs := make([]string, len(args))
-	for i, s := range args {
-		if len(s) == 0 {
-			return nil, false
-		}
-		camelArgs[i] = strings.ToUpper(s[:1]) + strings.ToLower(s[1:])
+	if len(args) == 0 {
+		return nil, false
 	}
 
-	methodName := "Cmd" + strings.Join(camelArgs, "")
+	/*
+		camelArgs := make([]string, len(args))
+
+		for i, s := range args {
+			if len(s) == 0 {
+				return nil, false
+			}
+			camelArgs[i] = strings.ToUpper(s[:1]) + strings.ToLower(s[1:])
+		}
+	*/
+
+	// methodName := "Cmd" + strings.Join(camelArgs, "")
+	methodName := "Cmd" + strings.ToUpper(args[0][:1]) + strings.ToLower(args[0][1:])
 	method := reflect.ValueOf(cli).MethodByName(methodName)
+
 	if !method.IsValid() {
 		fmt.Printf("Method is not valid\n")
 		return nil, false
 	}
-
 	return method.Interface().(func(...string) error), true
 }
 
 func (cli *Cli) Cmd(args ...string) error {
 	if len(args) > 1 {
-		method, exists := cli.getMethod(args[:2]...)
+		method, exists := cli.getMethod(args[:1]...)
 		if exists {
-			return method(args[2:]...)
+			return method(args[1:]...)
 		}
 	}
 	if len(args) > 0 {
@@ -119,9 +128,23 @@ func (cli *Cli) CmdNew(args ...string) error {
 	return nil
 }
 
-func (cli *Cli) CmdWatch(args ...string) error {
-	say("Watching current directory")
-	Watch()
+func Log(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL)
+		handler.ServeHTTP(w, r)
+	})
+}
+
+func (cli *Cli) CmdApi(args ...string) error {
+	say("Building API")
+
+	for _, arg := range args {
+		api, err := ReadBlueprint(arg)
+		check(err)
+		api.RunService()
+		// api.GenerateService()
+	}
+	log.Fatal(http.ListenAndServe(":8080", handlers.LoggingHandler(os.Stdout, http.DefaultServeMux)))
 	return nil
 }
 
