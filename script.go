@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
-	"regexp"
-	"strings"
 )
 
 func runJsxCompiler() {
@@ -23,60 +21,31 @@ func runJsxCompiler() {
 	}
 }
 
-func makeJavascriptPathMapping() map[string]string {
-	javascripts, err := filepath.Glob("javascripts/*.js")
-	check(err)
-
-	extraJavascripts, err := filepath.Glob("javascripts/**/*.js")
-	check(err)
-
-	javascripts = append(javascripts, extraJavascripts...)
-
-	var fullPath map[string]string
-	fullPath = make(map[string]string)
-
-	for _, js := range javascripts {
-		base := filepath.Base(js)
-		fullPath[base] = js
-
-	}
-	return fullPath
-}
-
 func buildJavascripts() string {
-	// build a list of all the javascripts files available
-	// and turn them into a map from base -> full path
-	fullPaths := makeJavascriptPathMapping()
 
-	re := regexp.MustCompile("//= require (.*)")
-	lines, err := readLines("javascripts/app.js")
+	javascripts, err := filepath.Glob("javascripts/vendor/*.js")
 	check(err)
+
+	lib, err := filepath.Glob("javascripts/lib/*.js")
+	check(err)
+	javascripts = append(javascripts, lib...)
+
+	components, err := filepath.Glob("javascripts/components/*.js")
+	check(err)
+	javascripts = append(javascripts, components...)
+
+	toplevel, err := filepath.Glob("javascripts/*.js")
+	check(err)
+	javascripts = append(javascripts, toplevel...)
 
 	var b bytes.Buffer
+	for _, path := range javascripts {
+		js := filepath.Base(path)
+		pathTo := filepath.Join("public/js/", js)
 
-	for _, line := range lines {
-		res := re.FindStringSubmatch(line)
-		if res == nil {
-			continue
-		}
-
-		// resolve the full path of this dependency
-		path := filepath.Base(res[1])
-		if !strings.HasSuffix(path, ".js") {
-			path = path + ".js"
-		}
-
-		fullPath := fullPaths[path]
-
-		pathTo := filepath.Join("public/js/", path)
-		CopyFile(fullPath, pathTo)
-		fmt.Println(pathTo, "created")
-		b.Write([]byte(fmt.Sprintf("<script src=\"js/%s\"></script>\n", path)))
+		CopyFile(path, pathTo)
+		b.Write([]byte(fmt.Sprintf("<script src=\"js/%s\"></script>\n", js)))
 	}
-
-	CopyFile("javascripts/app.js", "public/js/app.js")
-	fmt.Println("app.js created")
-	b.Write([]byte("<script src=\"js/app.js\"></script>\n"))
 
 	return b.String()
 }
