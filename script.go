@@ -21,29 +21,29 @@ func runJsxCompiler() {
 	}
 }
 
-func buildJavascripts() string {
-
-	javascripts, err := filepath.Glob("javascripts/vendor/*.js")
+func jsFiles() []string {
+	javascripts, err := filepath.Glob("javascripts/*.js")
 	check(err)
+	return javascripts
+}
 
-	lib, err := filepath.Glob("javascripts/lib/*.js")
+func jsFilesFrom(group string) []string {
+	javascripts, err := filepath.Glob(fmt.Sprintf("javascripts/%s/*.js", group))
 	check(err)
-	javascripts = append(javascripts, lib...)
+	return javascripts
+}
 
-	components, err := filepath.Glob("javascripts/components/*.js")
-	check(err)
-	javascripts = append(javascripts, components...)
-
-	toplevel, err := filepath.Glob("javascripts/*.js")
-	check(err)
-	javascripts = append(javascripts, toplevel...)
+func buildJavascripts(concat bool) string {
+	javascripts := jsFilesFrom("vendor")
+	javascripts = append(javascripts, jsFilesFrom("lib")...)
+	javascripts = append(javascripts, jsFilesFrom("components")...)
+	javascripts = append(javascripts, jsFiles()...) // javascripts/*.js that is
 
 	var b bytes.Buffer
 	for _, path := range javascripts {
 		js := filepath.Base(path)
-		pathTo := filepath.Join("public/js/", js)
 
-		CopyFile(path, pathTo)
+		CopyFile(path, filepath.Join("public/js/", js))
 		b.Write([]byte(fmt.Sprintf("<script src=\"js/%s\"></script>\n", js)))
 	}
 
