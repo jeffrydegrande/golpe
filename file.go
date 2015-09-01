@@ -23,6 +23,7 @@ func readLines(path string) ([]string, error) {
 	return lines, scanner.Err()
 }
 
+// CopyFile copies *src* to *dst*
 func CopyFile(src string, dst string) {
 	// Read all content of src to data
 	data, err := ioutil.ReadFile(src)

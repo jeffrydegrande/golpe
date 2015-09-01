@@ -74,6 +74,7 @@ func copyFonts() {
 	check(err)
 }
 
+// BuildAll prepares all assets and copies them into public/
 func BuildAll() error {
 	say("Creating directories")
 	createDirectories()
