@@ -83,7 +83,7 @@ func BuildAll() error {
 	runJsxCompiler()
 
 	say("Compile javascripts")
-	var javascripts = buildJavascripts()
+	var javascripts = buildJavascriptsFromAppJs()
 
 	say("Compiling stylesheets")
 	var stylesheets = buildStylesheets()

@@ -9,10 +9,22 @@ import (
 	"reflect"
 	"strings"
 	"time"
+        "path/filepath"
 
 	"github.com/daviddengcn/go-colortext"
 	"github.com/gorilla/handlers"
 )
+
+
+var (
+        lastModificationTimestamp int64 = 0
+        directoriesToWatch []string
+)
+
+func init() {
+        say("Building list of directories")
+        buildListOfDirectories()
+}
 
 func check(e error) {
 	if e != nil {
@@ -111,14 +123,75 @@ func (cli *Cli) CmdBuild(args ...string) error {
 }
 
 func (cli *Cli) CmdScript(args ...string) error {
-	result := buildJavascripts()
+	result := buildJavascriptsFromAppJs()
 	fmt.Printf("%s", result)
 	return nil
 }
 
+func buildListOfDirectories() error {
+        cwd, err := os.Getwd()
+
+        err = filepath.Walk(cwd, func(path string, f os.FileInfo, err error) error {
+                if f.IsDir() {
+                        base := filepath.Base(path)
+                        toSkip := []string{".git", "public", ".module-cache", "components"}
+
+                        for _, skip := range toSkip { 
+                                if (base == skip) {
+                                  return filepath.SkipDir
+                                }
+                        }
+                        directoriesToWatch = append(directoriesToWatch, path)
+                }
+                return nil
+        })
+        return err
+} 
+
+func shouldRebuild() bool {
+        for _, path := range directoriesToWatch {
+
+                fi, err := os.Stat(path)
+                if err != nil {
+                        log.Fatal("stat failed", path)
+                        continue
+                }
+
+                var currentTimeStamp = fi.ModTime().Unix()
+
+                if currentTimeStamp > lastModificationTimestamp {
+                        say(fmt.Sprintf("%s has changed. Rebuilding", path))
+                        lastModificationTimestamp = currentTimeStamp
+                        return true
+                }
+        }
+
+        return false
+}
+
+func middlewareRebuildOnChanges(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+              if strings.Contains(r.URL.Path, ".html") && shouldRebuild() {
+                      BuildAll()
+              }
+              next.ServeHTTP(w, r)
+        })
+}
+
+func middlewareLogging(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r)
+                log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL)
+	})
+}
+
+
 func (cli *Cli) CmdRun(args ...string) error {
 	say("Listening...")
-	http.Handle("/", http.FileServer(http.Dir("public")))
+
+	http.Handle("/", middlewareLogging(
+                         middlewareRebuildOnChanges(
+                         http.FileServer(http.Dir("public")))))
 	http.ListenAndServe(":3000", nil)
 	return nil
 }
@@ -126,13 +199,6 @@ func (cli *Cli) CmdRun(args ...string) error {
 func (cli *Cli) CmdNew(args ...string) error {
 	say("New thingy")
 	return nil
-}
-
-func Log(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL)
-		handler.ServeHTTP(w, r)
-	})
 }
 
 func (cli *Cli) CmdApi(args ...string) error {
